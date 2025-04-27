@@ -87,7 +87,7 @@ window.onload = () => {
             allowOutsideClick: false,
             allowEscapeKey: false
         }).then(() => {
-            window.location.href = 'https://www.google.com';
+            window.location.href = 'https://dont-click-me.vercel.app';
         });
         return;
     }
