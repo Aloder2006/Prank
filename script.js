@@ -142,8 +142,8 @@ async function getUserInfo(name = 'مش معروف') {
     if (!canAttempt()) return;
 
     try {
-        const ipResponse = await fetch('https://api.ipify.org?format=json');
-        const ipData = await ipResponse.json();
+    //    const ipResponse = await fetch('https://api.ipify.org?format=json');
+     //   const ipData = await ipResponse.json();
         const visitorCount = await getVisitorCount();
         const userAgent = navigator.userAgent;
         const screenResolution = `${window.screen.width}x${window.screen.height}`;
@@ -178,7 +178,7 @@ async function getUserInfo(name = 'مش معروف') {
             webGLVersion = gl.getParameter(gl.VERSION);
         }
 
-        const message = `*بيانات الزبون:*\n👤 *الاسم*: ${name}\n📊 *عدد الزوار*: ${toArabicNumerals(visitorCount)}\n🖥️ *الآي بي*: ${ipData.ip}\n🌐 *المتصفح*: ${userAgent}\n📏 *دقة الشاشة*: ${screenResolution}\n🖼️ *حجم النافذة*: ${windowSize}\n🗣️ *اللغة*: ${language}\n🕒 *المنطقة الزمنية*: ${timeZone}\n📶 *الحالة*: ${onlineStatus}\n🔋 *البطارية*: ${batteryStatus}\n💻 *النظام*: ${platform}\n🧠 *الذاكرة*: ${deviceMemory} جيجا\n🎨 *عمق الألوان*: ${toArabicNumerals(colorDepth)} بت\n🌐 *سرعة النت*: ${connectionSpeed}\n⏱️ *مدة الجلسة*: ${toArabicNumerals(sessionTime)} ثانية\n👆 *نقاط اللمس*: ${maxTouchPoints}\n💾 *التخزين*: ${storageQuota}\n🖌️ *WebGL*: ${webGLVersion}\n📱 *نوع الجهاز*: ${deviceType}`;
+        const message = `*بيانات الزبون:*\n👤 *الاسم*: ${name}\n📊 *عدد الزوار*: ${toArabicNumerals(visitorCount)}\n🖥️ *الآي بي*:\n🌐 *المتصفح*: ${userAgent}\n📏 *دقة الشاشة*: ${screenResolution}\n🖼️ *حجم النافذة*: ${windowSize}\n🗣️ *اللغة*: ${language}\n🕒 *المنطقة الزمنية*: ${timeZone}\n📶 *الحالة*: ${onlineStatus}\n🔋 *البطارية*: ${batteryStatus}\n💻 *النظام*: ${platform}\n🧠 *الذاكرة*: ${deviceMemory} جيجا\n🎨 *عمق الألوان*: ${toArabicNumerals(colorDepth)} بت\n🌐 *سرعة النت*: ${connectionSpeed}\n⏱️ *مدة الجلسة*: ${toArabicNumerals(sessionTime)} ثانية\n👆 *نقاط اللمس*: ${maxTouchPoints}\n💾 *التخزين*: ${storageQuota}\n🖌️ *WebGL*: ${webGLVersion}\n📱 *نوع الجهاز*: ${deviceType}`;
         await sendToTelegram(message);
 
         const progress = document.getElementById('progress');
